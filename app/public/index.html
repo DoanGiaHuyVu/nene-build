@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Tracker</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
+        h1 { color: #333; }
+        .workout-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .workout-card h3 { margin-top: 0; }
+        .exercise-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button.delete { background: #dc3545; }
+        .add-workout-form { background: #eee; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .exercise-list { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🏋️‍♂️ Gym Tracker</h1>
+
+    <div class="add-workout-form">
+        <h3>Add New Workout</h3>
+        <div class="form-group">
+            <label>Workout Name</label>
+            <input type="text" id="workoutName" placeholder="e.g. Push Day">
+        </div>
+        <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="workoutDate">
+        </div>
+        <div id="exerciseInputs"></div>
+        <button onclick="addExerciseRow()">+ Add Exercise</button>
+        <button onclick="saveWorkout()" style="background: #28a745; margin-left: 10px;">Save Workout</button>
+    </div>
+
+    <div id="workoutList"></div>
+
+    <script>
+        async function fetchWorkouts() {
+            const res = await fetch('/api/workouts');
+            const workouts = await res.json();
+            renderWorkouts(workouts);
+        }
+
+        function renderWorkouts(workouts) {
+            const container = document.getElementById('workoutList');
+            container.innerHTML = '';
+            workouts.forEach(w => {
+                const card = document.createElement('div');
+                card.className = 'workout-card';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>${w.name} - ${w.date}</h3>
+                        <button class="delete" onclick="deleteWorkout(${w.id})">Delete</button>
+                    </div>
+                    <div class="exercise-list">
+                        ${w.exercises.map(e => `
+                            <div class="exercise-row">
+                                <span><strong>${e.name}</strong></span>
+                                <span>${e.sets} sets</span>
+                                <span>${e.reps} reps</span>
+                                <span>${e.weight} lbs</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function addExerciseRow() {
+            const container = document.getElementById('exerciseInputs');
+            const row = document.createElement('div');
+            row.className = 'exercise-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Exercise" class="ex-name">
+                <input type="number" placeholder="Sets" class="ex-sets">
+                <input type="number" placeholder="Reps" class="ex-reps">
+                <input type="number" placeholder="Weight" class="ex-weight">
+                <button onclick="this.parentElement.remove()" class="delete">X</button>
+            `;
+            container.appendChild(row);
+        }
+
+        async function saveWorkout() {
+            const name = document.getElementById('workoutName').value;
+            const date = document.getElementById('workoutDate').value;
+            const rows = document.querySelectorAll('#exerciseInputs .exercise-row');
+            const exercises = Array.from(rows).map(row => ({
+                name: row.querySelector('.ex-name').value,
+                sets: row.querySelector('.ex-sets').value,
+                reps: row.querySelector('.ex-reps').value,
+                weight: row.querySelector('.ex-weight').value,
+            }));
+
+            if (!name || !date || exercises.length === 0) {
+                alert('Please fill in name, date, and at least one exercise.');
+                return;
+            }
+
+            await fetch('/api/workouts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, date, exercises })
+            });
+
+            document.getElementById('workoutName').value = '';
+            document.getElementById('workoutDate').value = '';
+            document.getElementById('exerciseInputs').innerHTML = '';
+            fetchWorkouts();
+        }
+
+        async function deleteWorkout(id) {
+            if (confirm('Are you sure?')) {
+                await fetch(`/api/workouts/${id}`, { method: 'DELETE' });
+                fetchWorkouts();
+            }
+        }
+
+        fetchWorkouts();
+    </script>
+</body>
+</html>
